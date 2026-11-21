@@ -1,0 +1,836 @@
+{
+  "id": "ShopAnalystChat1",
+  "name": "Shop Analyst - Chat",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "hostedChat",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        200
+      ],
+      "id": "a1f51213-2180-5ad0-938d-834e984db3e0",
+      "name": "Trigger - Chat",
+      "webhookId": "aa39f44d-a33c-5d60-9e26-17b7913b1586"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c4b547db-f110-5c74-838f-ebe7a94cbf47",
+              "name": "question",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "b5095bf0-dc4f-58a8-abce-027453931b5f",
+              "name": "session_id",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "f597365e-4377-5387-aa47-6a33dfd892cd",
+              "name": "max_attempts",
+              "value": 3,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1380,
+        200
+      ],
+      "id": "f6bb59da-4195-570b-8fbc-c0f9659d669b",
+      "name": "Config - Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.question }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You sort messages sent to the analytics assistant of an online coffee and tea shop.\nThe assistant answers questions about the shop's own data: sales and revenue, orders, products and categories,\ncustomers and their countries, reviews and ratings, refunds and cancellations, sales channels.\n\nReply with ONE JSON object and nothing else:\n{\"intent\": \"data\" | \"smalltalk\" | \"out_of_scope\", \"reply\": \"<text>\"}\n\n- data: the message asks something that the shop's data can answer. reply = \"\".\n- smalltalk: greetings, thanks, \"what can you do\". reply = one friendly sentence that says what you can answer.\n- out_of_scope: anything else (general knowledge, coding, other companies, advice). reply = one polite sentence.\n"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -1160,
+        200
+      ],
+      "id": "cc662a10-aa79-570c-9ce1-d89d451b3829",
+      "name": "Guard - Classify question",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The model is asked for JSON, but small models wrap it in prose or code fences: dig it out, default to \"data\".\nconst text = String($json.text ?? '');\nlet parsed = {};\nconst match = text.match(/\\{[\\s\\S]*\\}/);\ntry { parsed = match ? JSON.parse(match[0]) : {}; } catch (e) { parsed = {}; }\nconst allowed = ['data', 'smalltalk', 'out_of_scope'];\nconst intent = allowed.includes(parsed.intent) ? parsed.intent : 'data';\nreturn [{ json: { intent, reply: String(parsed.reply ?? '').trim(),\n                  question: $('Config - Request').first().json.question } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -860,
+        200
+      ],
+      "id": "60d995b0-1c41-5471-afbc-37a8b6946d2d",
+      "name": "Guard - Parse intent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7b2c806a-99ad-49d7-b2eb-1f93fd2a4ce2",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "data",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "data"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ed45bd1a-c3f5-4dc1-a028-b7ad07fcc7e7",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "smalltalk",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "smalltalk"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "63947cf8-7e71-4a47-9454-6aac039fe780",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "out_of_scope",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "out_of_scope"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -640,
+        200
+      ],
+      "id": "616c7252-0ab6-5ec7-a68a-5dd8e04ccb12",
+      "name": "Guard - Route"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "04c8f999-fca9-5a13-acdd-0280b5293ade",
+              "name": "output",
+              "value": "={{ $json.reply || 'Hi! Ask me about sales, products, customers, orders or reviews.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -380,
+        420
+      ],
+      "id": "40e2c76c-6540-5035-af73-778984b04af4",
+      "name": "Reply - Smalltalk"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0aae9e46-24c3-5d14-8ebf-5bad3621b19a",
+              "name": "output",
+              "value": "I can only answer questions about this shop's data: sales, products, customers, orders and reviews.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -380,
+        620
+      ],
+      "id": "595a1f99-13fb-5dcf-9bdc-b13ed9c51d43",
+      "name": "Reply - Out of scope"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT string_agg(t.table_name || '(' || t.cols || ')', E'\\n' ORDER BY t.table_name) AS schema\nFROM (SELECT c.table_name,\n             string_agg(c.column_name || ' ' || c.data_type, ', ' ORDER BY c.ordinal_position) AS cols\n      FROM information_schema.columns c\n      WHERE c.table_schema = 'public'\n      GROUP BY c.table_name) t;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -380,
+        100
+      ],
+      "id": "e65163f9-06bc-5b6e-bfb2-85c1467d54c4",
+      "name": "Analyst - Load schema",
+      "credentials": {
+        "postgres": {
+          "id": "shopDbReadOnly01",
+          "name": "Shop DB (read-only)"
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// One place that holds the loop state: first pass comes from the router, retries come from \"Loop - Add critique\".\nconst prev = $input.first().json;\nreturn [{ json: {\n  question: prev.question ?? $('Config - Request').first().json.question,\n  schema: $('Analyst - Load schema').first().json.schema,\n  attempt: prev.attempt ?? 1,\n  critique: prev.critique ?? '',\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        100
+      ],
+      "id": "2dc30764-df67-5a31-a3f1-c03aaf5cf281",
+      "name": "Loop - State"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.critique ? 'Your previous answer was rejected by the reviewer: ' + $json.critique + '\\nQuery the database again and answer correctly.\\n\\n' : '' }}Question: {{ $json.question }}",
+        "options": {
+          "systemMessage": "=You are the data analyst of an online coffee and tea shop. You answer the owner's questions\nusing ONLY rows returned by the run_sql tool in this conversation.\n\nDATABASE (PostgreSQL), table(columns):\n{{ $json.schema }}\n\nBUSINESS RULES\n- Revenue counts only orders with status paid, shipped or delivered. Use the view order_totals for order revenue.\n- Line revenue is order_items.quantity * order_items.unit_price (not products.price).\n- Dates: orders.ordered_at is a timestamp; \"last month\" means the previous calendar month.\n\nHOW TO WORK\n1. Write one SELECT for the question and call run_sql. Never INSERT, UPDATE or DELETE.\n2. If run_sql returns an error, read it, fix the query and call run_sql again.\n3. Answer in 1-4 short sentences. Every number you write must be copied from the rows (you may round money to\n   whole euros). If the rows are empty, say that no data matched.\n4. Do not show SQL, table names or column names in the answer.\n5. The database holds only this shop's data. For benchmarks, market averages or anything outside it, say that\n   the data does not contain it. Never type such values into the SQL.\n",
+          "maxIterations": 6,
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        80,
+        100
+      ],
+      "id": "25002b1a-40f0-5850-950d-83bed0dcb63e",
+      "name": "Analyst - Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "llama3.1:latest",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        520
+      ],
+      "id": "e636a286-5086-5e84-9e3d-be55f1364a3c",
+      "name": "Model - Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaLocal00001",
+          "name": "Ollama (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Config - Request').first().json.session_id }}",
+        "contextWindowLength": 6
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        380
+      ],
+      "id": "222f3d5b-0ccd-578d-bf6f-0a9f549c8845",
+      "name": "Memory - Chat window"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Runs ONE read-only PostgreSQL SELECT on the shop database and returns the rows as JSON. On a mistake it returns the database error, so you can fix the query.",
+        "operation": "executeQuery",
+        "query": "={{ $fromAI('sql', 'One PostgreSQL SELECT statement', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        280,
+        380
+      ],
+      "id": "98c1ea22-dc6d-5188-85e9-89642570ca87",
+      "name": "Tool - run_sql",
+      "credentials": {
+        "postgres": {
+          "id": "shopDbReadOnly01",
+          "name": "Shop DB (read-only)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deterministic reviewer: the answer must come from a SQL call, and every number in it must appear in the rows.\nconst res = $input.first().json;\nconst state = $('Loop - State').item.json;\nconst answer = String(res.output ?? '').trim();\nconst steps = Array.isArray(res.intermediateSteps) ? res.intermediateSteps : [];\n\nconst sqlSteps = steps.filter(s => /select/i.test(JSON.stringify(s?.action?.toolInput ?? '')));\nconst okSteps = sqlSteps.filter(s => !/error/i.test(String(s?.observation ?? '').slice(0, 200)));\n\nconst numbersIn = text => (String(text).match(/-?\\d[\\d,]*(?:\\.\\d+)?/g) ?? [])\n  .map(n => Number(n.replace(/,/g, ''))).filter(n => Number.isFinite(n));\nconst close = (a, b) => Math.abs(a - b) <= Math.max(1, Math.abs(a) * 0.005);\n// A constant typed into the SQL (\"25.00 AS market_average\") comes back as a row value, but it is not data.\nconst sqlConstants = numbersIn(okSteps.map(s => JSON.stringify(s.action.toolInput)).join(' '));\nconst evidence = numbersIn(okSteps.map(s => s.observation).join(' ') + ' ' + state.question);\nconst fromData = v => evidence.some(e => close(e, v)) && !sqlConstants.some(k => close(k, v));\nconst significant = v => Math.abs(v) > 10 && !(v >= 2000 && v <= 2100);\n\nconst problems = [];\nif (!answer) problems.push('The answer is empty.');\nif (!sqlSteps.length) problems.push('You answered without calling run_sql. Query the database first.');\nelse if (!okSteps.length) problems.push('Every query failed. Fix the SQL using the error message.');\nelse {\n  const numbers = numbersIn(answer).filter(significant);\n  const typedIn = numbers.filter(v => sqlConstants.some(k => close(k, v)));\n  const missing = numbers.filter(v => !typedIn.includes(v) && !fromData(v));\n  if (typedIn.length) problems.push('These numbers were written into the SQL as constants, they are not data: '\n    + typedIn.join(', ') + '. If the database cannot answer part of the question, say so.');\n  if (missing.length) problems.push('These numbers are not in the query results: ' + missing.join(', ') + '.');\n}\n\nreturn [{ json: {\n  verdict: problems.length ? 'RETRY' : 'PASS',\n  critique: problems.join(' '),\n  answer,\n  question: state.question,\n  attempt: state.attempt,\n  sql_calls: sqlSteps.length,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "173d797a-bfdc-52c0-8824-a704269d8007",
+      "name": "Review - Grounding check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "959b6bc7-948d-4eb1-88f3-508b913762f8",
+              "leftValue": "={{ $json.verdict }}",
+              "rightValue": "PASS",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ],
+      "id": "867fccf4-e95a-5c73-bc35-97f774d25def",
+      "name": "Review - Passed?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "885b596c-172c-5ed9-ab0a-f4c065f0783a",
+              "name": "output",
+              "value": "={{ $json.answer }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        -120
+      ],
+      "id": "427a2a67-2aad-5fb0-94e7-3477b65bb507",
+      "name": "Reply - Answer"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e095f6fc-de03-4fc0-8ff5-ba0c25ba0c81",
+              "leftValue": "={{ $json.attempt }}",
+              "rightValue": "={{ $('Config - Request').first().json.max_attempts }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        120
+      ],
+      "id": "66f49f64-fd24-58bc-a259-55a21bf29e1d",
+      "name": "Review - Attempts left?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "01cbd0ed-1e41-5704-8eba-8f8726a5d001",
+              "name": "question",
+              "value": "={{ $json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "aa989d44-2e0e-5095-aa98-6660a1901827",
+              "name": "critique",
+              "value": "={{ $json.critique }}",
+              "type": "string"
+            },
+            {
+              "id": "e44911e7-ea22-5830-a89e-f1467c957fad",
+              "name": "attempt",
+              "value": "={{ $json.attempt + 1 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1140,
+        40
+      ],
+      "id": "3188ab1e-07d7-58e0-bd4d-22e8cd561391",
+      "name": "Loop - Add critique"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "797d5dff-2adb-5741-a7a4-1792ab0f024e",
+              "name": "output",
+              "value": "=I could not confirm this answer against the data after {{ $json.attempt }} attempts, so I'd rather not guess. Try asking more specifically (a period, a product, a country).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1140,
+        240
+      ],
+      "id": "238a9795-d522-581e-ab52-a2a43210a199",
+      "name": "Reply - Could not verify"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f61e6eb5-7bcc-52e7-a209-fde509728668",
+              "name": "workflow_name",
+              "value": "={{ $workflow.name }}",
+              "type": "string"
+            },
+            {
+              "id": "92f62ffd-a47c-5bbb-8891-11b745e17cb8",
+              "name": "failed_node",
+              "value": "Analyst - Agent",
+              "type": "string"
+            },
+            {
+              "id": "53d43bc8-0023-5b63-96ab-984deffff091",
+              "name": "error_message",
+              "value": "={{ $json.error?.message ?? $json.error ?? 'unknown error' }}",
+              "type": "string"
+            },
+            {
+              "id": "d2476862-baaa-519f-a0c7-5a41d0eb3f4b",
+              "name": "execution_url",
+              "value": "={{ $execution.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        260
+      ],
+      "id": "9f6e54d1-9754-5160-ab08-fb935402754c",
+      "name": "Ops - Incident payload"
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "ShopAnalystInc01",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        260
+      ],
+      "id": "6c90cef7-d957-5ff5-8fae-d67dd7601dba",
+      "name": "Ops - Report incident"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2481005b-3f51-5191-b937-79ae380359bf",
+              "name": "output",
+              "value": "Something went wrong on my side while querying the data. The team has been notified, please try again in a minute.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        360
+      ],
+      "id": "34f51ae6-a271-5df7-a4e8-b2dd692acd2a",
+      "name": "Reply - Technical issue"
+    }
+  ],
+  "connections": {
+    "Trigger - Chat": {
+      "main": [
+        [
+          {
+            "node": "Config - Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config - Request": {
+      "main": [
+        [
+          {
+            "node": "Guard - Classify question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard - Classify question": {
+      "main": [
+        [
+          {
+            "node": "Guard - Parse intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard - Parse intent": {
+      "main": [
+        [
+          {
+            "node": "Guard - Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst - Load schema": {
+      "main": [
+        [
+          {
+            "node": "Loop - State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop - State": {
+      "main": [
+        [
+          {
+            "node": "Analyst - Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review - Grounding check": {
+      "main": [
+        [
+          {
+            "node": "Review - Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop - Add critique": {
+      "main": [
+        [
+          {
+            "node": "Loop - State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ops - Incident payload": {
+      "main": [
+        [
+          {
+            "node": "Ops - Report incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ops - Report incident": {
+      "main": [
+        [
+          {
+            "node": "Reply - Technical issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard - Route": {
+      "main": [
+        [
+          {
+            "node": "Analyst - Load schema",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply - Smalltalk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply - Out of scope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst - Agent": {
+      "main": [
+        [
+          {
+            "node": "Review - Grounding check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ops - Incident payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review - Passed?": {
+      "main": [
+        [
+          {
+            "node": "Reply - Answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Review - Attempts left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review - Attempts left?": {
+      "main": [
+        [
+          {
+            "node": "Loop - Add critique",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply - Could not verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Ollama": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Guard - Classify question",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Analyst - Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory - Chat window": {
+      "ai_memory": [
+        [
+          {
+            "node": "Analyst - Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - run_sql": {
+      "ai_tool": [
+        [
+          {
+            "node": "Analyst - Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "ShopAnalystInc01"
+  },
+  "pinData": {}
+}

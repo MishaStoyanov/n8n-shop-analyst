@@ -1,0 +1,149 @@
+{
+  "id": "ShopAnalystInc01",
+  "name": "Shop Analyst - Incidents",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        0
+      ],
+      "id": "39d5c975-d760-5ffd-8c52-d7093460a725",
+      "name": "Trigger - Workflow failed"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        220
+      ],
+      "id": "d355fa78-5045-52c7-8ddd-0c0ef44bb208",
+      "name": "Trigger - Reported by workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8ac21b19-5519-5fa5-ade8-ee8951a25249",
+              "name": "workflow_name",
+              "value": "={{ $json.workflow?.name ?? $json.workflow_name ?? 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "2b7e3700-a235-589d-bfcf-dacaf9245c69",
+              "name": "failed_node",
+              "value": "={{ $json.execution?.lastNodeExecuted ?? $json.failed_node ?? 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "413b5f98-58fa-59da-ba81-7e79d5e7640f",
+              "name": "error_message",
+              "value": "={{ $json.execution?.error?.message ?? $json.error_message ?? 'no message' }}",
+              "type": "string"
+            },
+            {
+              "id": "14d3447c-494c-596d-b730-547f3cd15a90",
+              "name": "execution_url",
+              "value": "={{ $json.execution?.url ?? $json.execution_url ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -360,
+        100
+      ],
+      "id": "36ef657d-d33a-52c8-a78e-4be7f5505e4f",
+      "name": "Format - Incident"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "ops",
+          "mode": "name"
+        },
+        "table": {
+          "__rl": true,
+          "value": "incidents",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -120,
+        100
+      ],
+      "id": "9dcfccf9-0971-58db-85e5-1b2ec829fa1a",
+      "name": "Log - Save incident",
+      "credentials": {
+        "postgres": {
+          "id": "shopDbOpsWrite01",
+          "name": "Shop DB (incident log)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Trigger - Workflow failed": {
+      "main": [
+        [
+          {
+            "node": "Format - Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger - Reported by workflow": {
+      "main": [
+        [
+          {
+            "node": "Format - Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format - Incident": {
+      "main": [
+        [
+          {
+            "node": "Log - Save incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
